@@ -17,6 +17,7 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation(rootProject)
 
+    implementation("pro.horovodovodo4ka.astaroth:astaroth:0.4.1")
     kapt("pro.horovodovodo4ka.kodable:processor:1.2.11")
     api ("pro.horovodovodo4ka.kodable:core:1.2.11")
 }

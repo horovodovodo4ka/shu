@@ -17,19 +17,18 @@ private fun Any.uriQuery(prefix: String?): List<Pair<String, String>> {
 }
 
 private fun Map<*, *>.uriQuery(prefix: String?): List<Pair<String, String>> {
-    return map { entry ->
-        var key = entry.key.toString()
+    return flatMap {
+        var key = it.key?.toString() ?: return@flatMap emptyList<Pair<String, String>>()
+        val value = it.value ?: return@flatMap emptyList<Pair<String, String>>()
         prefix?.also { key = "$prefix[$key]" }
-        entry.value?.uriQuery(key)?.toList() ?: emptyList()
+        value.uriQuery(key).toList() ?: emptyList()
     }
-        .flatten()
 }
 
 private fun Iterable<*>.uriQuery(prefix: String?): List<Pair<String, String>> {
-    return mapIndexed { index, value ->
-        var key = index.toString()
-        prefix?.also { key = "$prefix[$key]" }
-        value?.uriQuery(key)?.toList() ?: emptyList()
+    return filterNotNull().flatMap { value ->
+        var key = ""
+        prefix?.also { key = "$prefix[]" }
+        value.uriQuery(key).toList() ?: emptyList()
     }
-        .flatten()
 }

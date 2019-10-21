@@ -106,7 +106,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         responseDecoder: Decoder<ResultType>
     ): ResourceResponseWithHeaders<List<ResultType>> {
         return try {
-            Result(value = makeJob(responseDecoder) { state ->
+            Result.success(makeJob(responseDecoder) { state ->
                 val fullUrl = fullUrl(path)
                 val queryList = query?.toList()
                 val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
@@ -116,7 +116,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
                 runRequest(request, responseDecoder.decodable.list, responseDecoder.jsonPath)
             })
         } catch (e: Throwable) {
-            Result(exception = e)
+            Result.error(e)
         }
     }
 
@@ -135,7 +135,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
                 POST, PUT -> resource?.let { requestEncoder.encodable.enkode(it) }
                 else -> throw Exception("Unsupported HTTP method $method")
             }
-            Result(value = makeJob(responseDecoder) { state ->
+            Result.success(makeJob(responseDecoder) { state ->
                 val fullUrl = fullUrl(path)
                 val queryList = query?.toList()
                 val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
@@ -147,7 +147,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
                 runRequest(request, responseDecoder.decodable, responseDecoder.jsonPath)
             })
         } catch (e: Throwable) {
-            Result(exception = e)
+            Result.error(e)
         }
     }
 

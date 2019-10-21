@@ -17,7 +17,6 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
 
     implementation("pro.horovodovodo4ka.astaroth:astaroth:0.4.1")
 
