@@ -1,0 +1,231 @@
+package pro.horovodovodo4ka.shu
+
+import com.github.kittinunf.fuel.core.*
+import com.github.kittinunf.fuel.core.Method.*
+import com.github.kittinunf.fuel.core.interceptors.redirectResponseInterceptor
+import com.github.kittinunf.fuel.core.requests.tryCancel
+import com.github.kittinunf.fuel.coroutines.awaitStringResponseResult
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import pro.horovodovodo4ka.astaroth.Log
+import pro.horovodovodo4ka.astaroth.d
+import pro.horovodovodo4ka.astaroth.e
+import pro.horovodovodo4ka.astaroth.i
+import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.types.KodablePath
+import pro.horovodovodo4ka.kodable.core.utils.dekode
+import pro.horovodovodo4ka.kodable.core.utils.enkode
+import pro.horovodovodo4ka.shu.extension.headersMap
+import pro.horovodovodo4ka.shu.extension.uriQueryString
+import java.net.URI
+import java.util.*
+
+class ApiClientImpl(private val apiUrl: String) : ApiClient {
+
+    private var manager = FuelManager()
+
+    init {
+        manager.basePath = apiUrl
+
+        manager.removeAllResponseInterceptors()
+        manager.addResponseInterceptor(redirectResponseInterceptor(manager))
+        addValidator(::validateWithMiddlewares)
+    }
+
+    private class MiddlewareImpl : Middleware {
+
+        var headersImpl: ((Decoder<*>) -> Headers?)? = null
+        var requestBarrierImpl: (suspend (Decoder<*>) -> Unit)? = null
+
+        var validateResponseImpl: ((Response) -> Unit)? = null
+
+        var recoverImpl: (suspend (Decoder<*>, Throwable) -> Unit)? = null
+        var successImpl: ((AnyResponse) -> Unit)? = null
+
+        override fun headers(block: (Decoder<*>) -> Headers?) {
+            headersImpl = block
+        }
+
+        override fun requestBarrier(block: suspend (Decoder<*>) -> Unit) {
+            requestBarrierImpl = block
+        }
+
+        override fun validateResponse(block: (Response) -> Unit) {
+            validateResponseImpl = block
+        }
+
+        override fun recover(block: suspend (Decoder<*>, Throwable) -> Unit) {
+            recoverImpl = block
+        }
+
+        override fun success(block: (AnyResponse) -> Unit) {
+            successImpl = block
+        }
+    }
+
+    private val middlewares = mutableListOf<MiddlewareImpl>()
+
+    override fun addMiddleware(block: Middleware.() -> Unit) {
+        middlewares.add(MiddlewareImpl().also(block))
+    }
+
+    private fun validateWithMiddlewares(response: Response) {
+        middlewares.mapNotNull { it.validateResponseImpl }.forEach { it.invoke(response) }
+    }
+
+    private fun fullUrl(path: String, query: QueryParameters? = null): String {
+        val url = URI("$apiUrl/$path")
+        val urlPath = url.path?.replace(Regex("/+"), "/") ?: ""
+        val newUrl = with(url) {
+            val newQuery = listOfNotNull(this.query, query?.uriQueryString()).takeIf { it.isNotEmpty() }?.joinToString("&")
+            URI(scheme, userInfo, host, port, urlPath, newQuery, fragment)
+        }
+        return newUrl.toString()
+    }
+
+    private suspend fun <T : Any> runRequest(request: Request, decoder: IKodable<T>, path: KodablePath?): Pair<T, Headers> = coroutineScope {
+        val requestJob = async {
+            val (result, response) = request.response(decoder, path)
+            result to response.headersMap
+        }
+
+        requestJob.invokeOnCompletion {
+            if (it !is CancellationException) return@invokeOnCompletion
+            request.tryCancel()
+        }
+
+        requestJob.await()
+    }
+
+    override suspend fun <ResultType : Any> requestCollection(
+        path: String,
+        query: QueryParameters?,
+        customHeader: Headers?,
+        responseDecoder: Decoder<ResultType>
+    ): ResourceResponseWithHeaders<List<ResultType>> {
+        return try {
+            Result(value = makeJob(responseDecoder) { state ->
+                val fullUrl = fullUrl(path)
+                val queryList = query?.toList()
+                val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
+                val request = manager.request(method = GET, path = fullUrl, parameters = queryList).header(headers)
+                state.request = request
+
+                runRequest(request, responseDecoder.decodable.list, responseDecoder.jsonPath)
+            })
+        } catch (e: Throwable) {
+            Result(exception = e)
+        }
+    }
+
+    override suspend fun <ResultType : Any, RequestType : Any> requestResource(
+        path: String,
+        resource: RequestType?,
+        query: QueryParameters?,
+        method: Method,
+        customHeader: Headers?,
+        requestEncoder: Encoder<RequestType>,
+        responseDecoder: Decoder<ResultType>
+    ): ResourceResponseWithHeaders<ResultType?> {
+        return try {
+            val body = when (method) {
+                GET, DELETE -> null
+                POST, PUT -> resource?.let { requestEncoder.encodable.enkode(it) }
+                else -> throw Exception("Unsupported HTTP method $method")
+            }
+            Result(value = makeJob(responseDecoder) { state ->
+                val fullUrl = fullUrl(path)
+                val queryList = query?.toList()
+                val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
+                val request = manager.request(method = method, path = fullUrl, parameters = queryList).header(headers)
+
+                body?.also { request.body(it) }
+                state.request = request
+
+                runRequest(request, responseDecoder.decodable, responseDecoder.jsonPath)
+            })
+        } catch (e: Throwable) {
+            Result(exception = e)
+        }
+    }
+
+    private class RequestHolder<T : AnyResponse>(
+        var request: Request? = null,
+        var task: (RequestHolder<T>) -> Deferred<T>
+    )
+
+    private suspend fun <T : AnyResponse> makeJob(mapper: Decoder<*>, block: suspend (RequestHolder<T>) -> T): T = coroutineScope {
+        val state = RequestHolder<T> {
+            async {
+                try {
+                    checkForError(mapper) { block(it) }
+                } catch (e: Exception) {
+                    it.request?.tryCancel()
+                    it.task(it).cancel()
+                    throw e
+                }
+            }
+        }
+
+        state.task(state).await()
+    }
+
+    private suspend fun <T : AnyResponse, M : Any> checkForError(mapper: Decoder<M>, request: suspend () -> T): T {
+        return try {
+            middlewares.mapNotNull { it.requestBarrierImpl }.map { it(mapper) }
+            request().also { result -> middlewares.mapNotNull { it.successImpl }.forEach { it(result) } }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (exception: Exception) {
+            val error = when (exception) {
+                is FuelError -> exception.exception
+                else -> exception
+            }
+            val results = middlewares
+                .mapNotNull { it.recoverImpl }
+                .map { runCatching { it(mapper, error) }.asApiResult() }
+
+            results
+                .firstOrNull { it.isSuccess }
+                ?.let {
+                    val res = it
+                    checkForError(mapper, request)
+                }
+                ?: throw results.lastOrNull { it.isFailure }?.exceptionOrNull() ?: error
+        }
+    }
+
+    private suspend fun <T : Any> Request.response(decoder: IKodable<T>, path: KodablePath?): Pair<T, Response> {
+        Log.d(Network, "\n$this")
+
+        val start = Date()
+
+        val (request, response, result) = request.timeout(15_000).awaitStringResponseResult()
+
+        val delta = Date().time - start.time
+
+        result.fold({
+            Log.i(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
+        }, {
+            Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
+        })
+
+        val value = decoder.dekode(result.get(), path)
+        return value to response
+    }
+
+//region=========VALIDATORS==========================
+
+    private fun addValidator(validator: (Response) -> Unit) {
+        manager.addResponseInterceptor { next: (Request, Response) -> Response ->
+            { request: Request, response: Response ->
+                validator(response)
+                next(request, response)
+            }
+        }
+    }
+
+//endregion================================
+}
