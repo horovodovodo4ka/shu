@@ -21,7 +21,7 @@ private fun Map<*, *>.uriQuery(prefix: String?): List<Pair<String, String>> {
         var key = it.key?.toString() ?: return@flatMap emptyList<Pair<String, String>>()
         val value = it.value ?: return@flatMap emptyList<Pair<String, String>>()
         prefix?.also { key = "$prefix[$key]" }
-        value.uriQuery(key).toList() ?: emptyList()
+        value.uriQuery(key).toList()
     }
 }
 
@@ -29,6 +29,6 @@ private fun Iterable<*>.uriQuery(prefix: String?): List<Pair<String, String>> {
     return filterNotNull().flatMap { value ->
         var key = ""
         prefix?.also { key = "$prefix[]" }
-        value.uriQuery(key).toList() ?: emptyList()
+        value.uriQuery(key).toList()
     }
 }

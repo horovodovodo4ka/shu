@@ -21,12 +21,16 @@ import pro.horovodovodo4ka.astaroth.e
 import pro.horovodovodo4ka.astaroth.i
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
+import pro.horovodovodo4ka.shu.coders.Decoder
+import pro.horovodovodo4ka.shu.coders.InnerDecoder
 import pro.horovodovodo4ka.shu.extension.headersMap
 import pro.horovodovodo4ka.shu.extension.uriQueryString
+import pro.horovodovodo4ka.shu.resource.ShuOperation
+import pro.horovodovodo4ka.shu.resource.ShuResponse
 import java.net.URI
 import java.util.*
 
-class ApiClientImpl(private val apiUrl: String) : ApiClient {
+class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
     private var manager = FuelManager()
 
@@ -46,7 +50,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         var validateResponseImpl: ((Response) -> Unit)? = null
 
         var recoverImpl: (suspend (Decoder<*>, Throwable) -> Unit)? = null
-        var successImpl: ((ResourceAnyResponse) -> Unit)? = null
+        var successImpl: ((ShuResponse<*>) -> Unit)? = null
 
         override fun headers(block: (Decoder<*>) -> Headers?) {
             headersImpl = block
@@ -64,7 +68,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
             recoverImpl = block
         }
 
-        override fun success(block: (ResourceAnyResponse) -> Unit) {
+        override fun success(block: (ShuResponse<*>) -> Unit) {
             successImpl = block
         }
     }
@@ -89,10 +93,10 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         return newUrl.toString()
     }
 
-    private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>): Pair<T, Headers> = coroutineScope {
+    private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>): ShuResponse<T> = coroutineScope {
         val requestJob = async {
             val (result, response) = request.response(decoder)
-            result to response.headersMap
+            ShuResponse(result, response.headersMap)
         }
 
         requestJob.invokeOnCompletion {
@@ -103,7 +107,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         requestJob.await()
     }
 
-    override suspend fun <RequestType : Any, ResponseType : Any> request(operation: Operation<RequestType, ResponseType>): ResourceResponseWithHeaders<ResponseType> = Result.of {
+    override suspend fun <RequestType : Any, ResponseType : Any> request(operation: ShuOperation<RequestType, ResponseType>): Result<ShuResponse<ResponseType>> = Result.of {
         with(operation) {
             val body = when (method) {
                 GET, DELETE -> null
@@ -132,12 +136,12 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         }
     }
 
-    private class RequestHolder<T : ResourceAnyResponse>(
+    private class RequestHolder<T : ShuResponse<*>>(
         var request: Request? = null,
         var task: (RequestHolder<T>) -> Deferred<T>
     )
 
-    private suspend fun <T : ResourceTypeWithHeaders<M>, M : Any> makeJob(mapper: Decoder<M>, block: suspend (RequestHolder<T>) -> T): T = coroutineScope {
+    private suspend fun <T : ShuResponse<M>, M : Any> makeJob(mapper: Decoder<M>, block: suspend (RequestHolder<T>) -> T): T = coroutineScope {
         val state = RequestHolder<T> {
             async {
                 try {
@@ -153,7 +157,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         state.task(state).await()
     }
 
-    private suspend fun <T : ResourceTypeWithHeaders<M>, M : Any> checkForError(mapper: Decoder<M>, request: suspend () -> T): T {
+    private suspend fun <T : ShuResponse<M>, M : Any> checkForError(mapper: Decoder<M>, request: suspend () -> T): T {
         return try {
             middlewares.mapNotNull { it.requestBarrierImpl }.map { it(mapper) }
             request().also { result -> middlewares.mapNotNull { it.successImpl }.forEach { it(result) } }

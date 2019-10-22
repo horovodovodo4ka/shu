@@ -1,4 +1,3 @@
-import com.github.fluidsonic.fluid.json.JSONReader
 import kotlinx.coroutines.runBlocking
 import pro.horovodovodo4ka.astaroth.Log
 import pro.horovodovodo4ka.astaroth.LogLevel
@@ -6,15 +5,17 @@ import pro.horovodovodo4ka.astaroth.LogType
 import pro.horovodovodo4ka.astaroth.Logger
 import pro.horovodovodo4ka.astaroth.d
 import pro.horovodovodo4ka.astaroth.isAbleToLog
-import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
-import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.Koder
-import pro.horovodovodo4ka.shu.ApiClientImpl
-import pro.horovodovodo4ka.shu.ShuResource
 import pro.horovodovodo4ka.shu.Headers
-import pro.horovodovodo4ka.shu.decoder
-import pro.horovodovodo4ka.shu.digInto
-import pro.horovodovodo4ka.shu.extension.uriQuery
+import pro.horovodovodo4ka.shu.ShuRemote
+import pro.horovodovodo4ka.shu.ShuRemoteDefault
+import pro.horovodovodo4ka.shu.coders.decoder
+import pro.horovodovodo4ka.shu.coders.digInto
+import pro.horovodovodo4ka.shu.getOrThrow
+import pro.horovodovodo4ka.shu.resource.Readable
+import pro.horovodovodo4ka.shu.resource.ShuResource
+import pro.horovodovodo4ka.shu.resource.deferredRead
+import pro.horovodovodo4ka.shu.resource.read
 
 class PrintLogger : Logger {
     override var config = Logger.Config()
@@ -39,30 +40,29 @@ class PrintLogger : Logger {
     }
 }
 
-@DefaultKodableForType(Unit::class)
-object Unit_Kodable : IKodable<Unit> {
-    override fun readValue(reader: JSONReader) = Unit
+object API : ShuRemote by ShuRemoteDefault("https://httpbin.org/") {
+    init {
+        addMiddleware {
+            headers { mapOf("X-OS" to "Android") }
+        }
+    }
 }
 
-class TestRequest(customHeaders: Headers? = null) : ShuResource<TestModel>("", customHeaders, resourceDecoder = TestModel_Kodable.decoder.digInto(".headers"))
+class TestRequest(customHeaders: Headers? = null) : ShuResource<TestModel>(API, "/get", customHeaders, resourceDecoder = TestModel_Kodable.decoder.digInto(".headers")),
+    Readable
 
 @Koder
-data class TestModel(val Accept: String)
+data class TestModel(val Accept: String, val Host: String)
 
 fun main() {
     Log.addLoggers(PrintLogger())
 
     val params = mapOf("a" to 1, "b" to listOf(1, 2))
 
-    val client = ApiClientImpl("https://httpbin.org/")
-
-    client.addMiddleware {
-        headers { mapOf("X-OS" to "Android") }
-    }
-
     val request = TestRequest()
+
     runBlocking {
-        val res = request.read("get", params).with(client).await()
+        val res = request.read(parameters = params).getOrThrow()
         Log.d(res)
     }
 }
