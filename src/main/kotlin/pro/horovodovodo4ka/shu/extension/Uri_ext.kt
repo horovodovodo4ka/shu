@@ -4,7 +4,7 @@ fun Any.uriQuery(): Map<String, String> {
     return uriQuery(null).toMap()
 }
 
-fun Any.uriQueryString() : String = uriQuery().toList().joinToString("&") { "${it.first}=${it.second}" }
+fun Any.uriQueryString(): String = uriQuery().toList().joinToString("&") { "${it.first}=${it.second}" }
 
 private fun Any.uriQuery(prefix: String?): List<Pair<String, String>> {
     return when (this) {

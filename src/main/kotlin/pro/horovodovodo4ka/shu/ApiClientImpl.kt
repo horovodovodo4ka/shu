@@ -1,7 +1,13 @@
 package pro.horovodovodo4ka.shu
 
-import com.github.kittinunf.fuel.core.*
-import com.github.kittinunf.fuel.core.Method.*
+import com.github.kittinunf.fuel.core.FuelError
+import com.github.kittinunf.fuel.core.FuelManager
+import com.github.kittinunf.fuel.core.Method.DELETE
+import com.github.kittinunf.fuel.core.Method.GET
+import com.github.kittinunf.fuel.core.Method.POST
+import com.github.kittinunf.fuel.core.Method.PUT
+import com.github.kittinunf.fuel.core.Request
+import com.github.kittinunf.fuel.core.Response
 import com.github.kittinunf.fuel.core.interceptors.redirectResponseInterceptor
 import com.github.kittinunf.fuel.core.requests.tryCancel
 import com.github.kittinunf.fuel.coroutines.awaitStringResponseResult
@@ -13,8 +19,6 @@ import pro.horovodovodo4ka.astaroth.Log
 import pro.horovodovodo4ka.astaroth.d
 import pro.horovodovodo4ka.astaroth.e
 import pro.horovodovodo4ka.astaroth.i
-import pro.horovodovodo4ka.kodable.core.IKodable
-import pro.horovodovodo4ka.kodable.core.types.KodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.shu.extension.headersMap
@@ -42,7 +46,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         var validateResponseImpl: ((Response) -> Unit)? = null
 
         var recoverImpl: (suspend (Decoder<*>, Throwable) -> Unit)? = null
-        var successImpl: ((AnyResponse) -> Unit)? = null
+        var successImpl: ((ResourceAnyResponse) -> Unit)? = null
 
         override fun headers(block: (Decoder<*>) -> Headers?) {
             headersImpl = block
@@ -60,7 +64,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
             recoverImpl = block
         }
 
-        override fun success(block: (AnyResponse) -> Unit) {
+        override fun success(block: (ResourceAnyResponse) -> Unit) {
             successImpl = block
         }
     }
@@ -85,9 +89,9 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         return newUrl.toString()
     }
 
-    private suspend fun <T : Any> runRequest(request: Request, decoder: IKodable<T>, path: KodablePath?): Pair<T, Headers> = coroutineScope {
+    private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>): Pair<T, Headers> = coroutineScope {
         val requestJob = async {
-            val (result, response) = request.response(decoder, path)
+            val (result, response) = request.response(decoder)
             result to response.headersMap
         }
 
@@ -99,64 +103,41 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         requestJob.await()
     }
 
-    override suspend fun <ResultType : Any> requestCollection(
-        path: String,
-        query: QueryParameters?,
-        customHeader: Headers?,
-        responseDecoder: Decoder<ResultType>
-    ): ResourceResponseWithHeaders<List<ResultType>> {
-        return try {
-            Result.success(makeJob(responseDecoder) { state ->
-                val fullUrl = fullUrl(path)
-                val queryList = query?.toList()
-                val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
-                val request = manager.request(method = GET, path = fullUrl, parameters = queryList).header(headers)
-                state.request = request
-
-                runRequest(request, responseDecoder.decodable.list, responseDecoder.jsonPath)
-            })
-        } catch (e: Throwable) {
-            Result.error(e)
-        }
-    }
-
-    override suspend fun <ResultType : Any, RequestType : Any> requestResource(
-        path: String,
-        resource: RequestType?,
-        query: QueryParameters?,
-        method: Method,
-        customHeader: Headers?,
-        requestEncoder: Encoder<RequestType>,
-        responseDecoder: Decoder<ResultType>
-    ): ResourceResponseWithHeaders<ResultType?> {
-        return try {
+    override suspend fun <RequestType : Any, ResponseType : Any> request(operation: Operation<RequestType, ResponseType>): ResourceResponseWithHeaders<ResponseType> = Result.of {
+        with(operation) {
             val body = when (method) {
                 GET, DELETE -> null
-                POST, PUT -> resource?.let { requestEncoder.encodable.enkode(it) }
+                POST, PUT -> resourceForSend?.let { requestEncoder().enkode(it) }
                 else -> throw Exception("Unsupported HTTP method $method")
             }
-            Result.success(makeJob(responseDecoder) { state ->
-                val fullUrl = fullUrl(path)
-                val queryList = query?.toList()
-                val headers = middlewares.mapNotNull { it.headersImpl }.flatMap { (it(responseDecoder) ?: emptyMap()).toList() }.toMap() + (customHeader ?: emptyMap())
-                val request = manager.request(method = method, path = fullUrl, parameters = queryList).header(headers)
+
+            val decoder = responseDecoder()
+
+            val fullUrl = fullUrl(path)
+            val queryList = queryParameters?.toList()
+
+            makeJob(decoder) { state ->
+
+                val headersList = (middlewares.mapNotNull { it.headersImpl?.invoke(decoder) } + headers).filterNotNull()
+
+                val headers = headersList.reduce { acc, map -> acc + map }
+
+                val request = manager.request(method, fullUrl, queryList).header(headers)
 
                 body?.also { request.body(it) }
                 state.request = request
 
-                runRequest(request, responseDecoder.decodable, responseDecoder.jsonPath)
-            })
-        } catch (e: Throwable) {
-            Result.error(e)
+                runRequest(request, decoder)
+            }
         }
     }
 
-    private class RequestHolder<T : AnyResponse>(
+    private class RequestHolder<T : ResourceAnyResponse>(
         var request: Request? = null,
         var task: (RequestHolder<T>) -> Deferred<T>
     )
 
-    private suspend fun <T : AnyResponse> makeJob(mapper: Decoder<*>, block: suspend (RequestHolder<T>) -> T): T = coroutineScope {
+    private suspend fun <T : ResourceTypeWithHeaders<M>, M : Any> makeJob(mapper: Decoder<M>, block: suspend (RequestHolder<T>) -> T): T = coroutineScope {
         val state = RequestHolder<T> {
             async {
                 try {
@@ -172,7 +153,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
         state.task(state).await()
     }
 
-    private suspend fun <T : AnyResponse, M : Any> checkForError(mapper: Decoder<M>, request: suspend () -> T): T {
+    private suspend fun <T : ResourceTypeWithHeaders<M>, M : Any> checkForError(mapper: Decoder<M>, request: suspend () -> T): T {
         return try {
             middlewares.mapNotNull { it.requestBarrierImpl }.map { it(mapper) }
             request().also { result -> middlewares.mapNotNull { it.successImpl }.forEach { it(result) } }
@@ -185,19 +166,18 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
             }
             val results = middlewares
                 .mapNotNull { it.recoverImpl }
-                .map { runCatching { it(mapper, error) }.asApiResult() }
+                .map { Result.of { it(mapper, error) } }
 
             results
                 .firstOrNull { it.isSuccess }
                 ?.let {
-                    val res = it
                     checkForError(mapper, request)
                 }
                 ?: throw results.lastOrNull { it.isFailure }?.exceptionOrNull() ?: error
         }
     }
 
-    private suspend fun <T : Any> Request.response(decoder: IKodable<T>, path: KodablePath?): Pair<T, Response> {
+    private suspend fun <T : Any> Request.response(decoder: Decoder<T>): Pair<T, Response> {
         Log.d(Network, "\n$this")
 
         val start = Date()
@@ -212,7 +192,7 @@ class ApiClientImpl(private val apiUrl: String) : ApiClient {
             Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
         })
 
-        val value = decoder.dekode(result.get(), path)
+        val value = decoder.dekode(result.get(), (decoder as? InnerDecoder)?.jsonPath)
         return value to response
     }
 
