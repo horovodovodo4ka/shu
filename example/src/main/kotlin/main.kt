@@ -6,16 +6,21 @@ import pro.horovodovodo4ka.astaroth.Logger
 import pro.horovodovodo4ka.astaroth.d
 import pro.horovodovodo4ka.astaroth.isAbleToLog
 import pro.horovodovodo4ka.kodable.core.Koder
-import pro.horovodovodo4ka.shu.Headers
 import pro.horovodovodo4ka.shu.ShuRemote
 import pro.horovodovodo4ka.shu.ShuRemoteDefault
-import pro.horovodovodo4ka.shu.coders.decoder
-import pro.horovodovodo4ka.shu.coders.digInto
+import pro.horovodovodo4ka.shu.kodable.decoder
 import pro.horovodovodo4ka.shu.getOrThrow
-import pro.horovodovodo4ka.shu.resource.Readable
-import pro.horovodovodo4ka.shu.resource.ShuResource
-import pro.horovodovodo4ka.shu.resource.deferredRead
-import pro.horovodovodo4ka.shu.resource.read
+import pro.horovodovodo4ka.shu.kodable.digInto
+import pro.horovodovodo4ka.shu.kodable.encoder
+import pro.horovodovodo4ka.shu.resource.ro
+import pro.horovodovodo4ka.shu.resource.Rpc
+import pro.horovodovodo4ka.shu.resource.operations.Readable
+import pro.horovodovodo4ka.shu.resource.ShuROResource
+import pro.horovodovodo4ka.shu.resource.operations.call
+import pro.horovodovodo4ka.shu.resource.operations.deferredCall
+import pro.horovodovodo4ka.shu.resource.operations.deferredRead
+import pro.horovodovodo4ka.shu.resource.operations.read
+import pro.horovodovodo4ka.shu.resource.rpc
 
 class PrintLogger : Logger {
     override var config = Logger.Config()
@@ -48,8 +53,13 @@ object API : ShuRemote by ShuRemoteDefault("https://httpbin.org/") {
     }
 }
 
-class TestRequest(customHeaders: Headers? = null) : ShuResource<TestModel>(API, "/get", customHeaders, resourceDecoder = TestModel_Kodable.decoder.digInto(".headers")),
+object TestResource : ShuROResource<TestModel> by ro(API, "/get", decoder = TestModel_Kodable.decoder.digInto(".headers")),
     Readable
+
+object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A_Kodable.encoder, decoder = TestModel_Kodable.decoder)
+
+@Koder
+data class A(val i: Int)
 
 @Koder
 data class TestModel(val Accept: String, val Host: String)
@@ -59,10 +69,9 @@ fun main() {
 
     val params = mapOf("a" to 1, "b" to listOf(1, 2))
 
-    val request = TestRequest()
-
     runBlocking {
-        val res = request.read(parameters = params).getOrThrow()
+        val r1 = TestRPC.deferredCall(A(1)).digInto(".headers").run().getOrThrow().data
+        val res = TestResource.read(parameters = params).getOrThrow()
         Log.d(res)
     }
 }

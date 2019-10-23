@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "pro.horovodovodo4ka"
-version = "0.9"
+version = "1.0"
 
 repositories {
     mavenCentral()

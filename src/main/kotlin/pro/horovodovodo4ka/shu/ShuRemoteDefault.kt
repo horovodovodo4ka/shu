@@ -19,10 +19,7 @@ import pro.horovodovodo4ka.astaroth.Log
 import pro.horovodovodo4ka.astaroth.d
 import pro.horovodovodo4ka.astaroth.e
 import pro.horovodovodo4ka.astaroth.i
-import pro.horovodovodo4ka.kodable.core.utils.dekode
-import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.shu.coders.Decoder
-import pro.horovodovodo4ka.shu.coders.InnerDecoder
 import pro.horovodovodo4ka.shu.extension.headersMap
 import pro.horovodovodo4ka.shu.extension.uriQueryString
 import pro.horovodovodo4ka.shu.resource.ShuOperation
@@ -111,7 +108,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         with(operation) {
             val body = when (method) {
                 GET, DELETE -> null
-                POST, PUT -> resourceForSend?.let { requestEncoder().enkode(it) }
+                POST, PUT -> resourceForSend?.let { requestEncoder().encode(it) }
                 else -> throw Exception("Unsupported HTTP method $method")
             }
 
@@ -196,7 +193,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
         })
 
-        val value = decoder.dekode(result.get(), (decoder as? InnerDecoder)?.jsonPath)
+        val value = decoder.decode(result.get())
         return value to response
     }
 

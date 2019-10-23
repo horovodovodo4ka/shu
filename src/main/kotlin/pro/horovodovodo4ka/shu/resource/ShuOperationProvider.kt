@@ -1,15 +1,12 @@
 package pro.horovodovodo4ka.shu.resource
 
-import pro.horovodovodo4ka.shu.ShuRemote
-import pro.horovodovodo4ka.shu.coders.Decoder
-import pro.horovodovodo4ka.shu.coders.Encoder
 import pro.horovodovodo4ka.shu.Headers
+import pro.horovodovodo4ka.shu.ShuRemote
 
-interface ShuOperationProvider<ResourceType : Any> {
+interface ShuOperationProvider {
     val origin: ShuRemote
     val path: String
-    var customHeaders: Headers?
-    val resourceDekoder: () -> Decoder<ResourceType>
-    val resourceEnkoder: () -> Encoder<ResourceType>
+    val customHeaders: Headers?
 }
+
 
