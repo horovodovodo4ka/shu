@@ -2,7 +2,6 @@ package pro.horovodovodo4ka.shu.resource.operations
 
 import com.github.kittinunf.fuel.core.Method.GET
 import pro.horovodovodo4ka.shu.QueryParameters
-import pro.horovodovodo4ka.shu.map
 import pro.horovodovodo4ka.shu.resource.ShuOperation
 import pro.horovodovodo4ka.shu.resource.ShuROResource
 

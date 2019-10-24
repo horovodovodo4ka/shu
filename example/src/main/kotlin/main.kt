@@ -60,7 +60,7 @@ object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A::class.kodabl
 data class A(val i: Int?)
 
 @Koder
-data class TestModel(val Accept: String, val Host: String)
+data class TestModel(val lAccept: String, val Host: String)
 
 fun main() {
     Log.addLoggers(PrintLogger())
@@ -69,7 +69,7 @@ fun main() {
 
     runBlocking {
         val r1 = TestRPC.deferredCall(A(1)).digInto(".headers").run().getOrThrow().value
-        val res = TestResource.read(parameters = params).getOrThrow()
+        val (res) = TestResource.read(parameters = params).getOrThrow()
         Log.d(res)
     }
 }

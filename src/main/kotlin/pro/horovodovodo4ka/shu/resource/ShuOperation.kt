@@ -20,6 +20,13 @@ class ShuResponse<ResponseType : Any>(val value: ResponseType, val rawResponse: 
     operator fun component4() = rawResponse.body
 }
 
+class ShuOperationException(override val cause: Throwable, val rawResponse: ShuRawResponse) : Exception(cause = cause) {
+    operator fun component1() = cause
+    operator fun component2() = rawResponse.httpStatusCode
+    operator fun component3() = rawResponse.headers
+    operator fun component4() = rawResponse.body
+}
+
 class ShuOperation<RequestType : Any, ResponseType : Any>(
     val origin: ShuRemote,
     val method: Method,

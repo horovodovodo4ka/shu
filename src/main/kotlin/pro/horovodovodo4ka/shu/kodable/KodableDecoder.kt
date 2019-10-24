@@ -28,6 +28,7 @@ class KodableDecoder<T>(private val nesting: IKodable<T>, override val jsonPath:
 
     override val dictionary: Decoder<Map<String, T>>
         get() = KodableDecoder(nesting.dictionary, jsonPath)
+
     override fun digInto(path: String) = KodableDecoder(nesting, KodablePath(path))
 
 }

@@ -23,12 +23,13 @@ import pro.horovodovodo4ka.shu.coders.Decoder
 import pro.horovodovodo4ka.shu.extension.headersMap
 import pro.horovodovodo4ka.shu.extension.uriQueryString
 import pro.horovodovodo4ka.shu.resource.ShuOperation
+import pro.horovodovodo4ka.shu.resource.ShuOperationException
 import pro.horovodovodo4ka.shu.resource.ShuRawResponse
 import pro.horovodovodo4ka.shu.resource.ShuResponse
 import java.net.URI
 import java.util.*
 
-private fun Response.asShu() : ShuRawResponse = ShuRawResponse(statusCode, headersMap) { data }
+private fun Response.asShu(): ShuRawResponse = ShuRawResponse(statusCode, headersMap) { data }
 
 class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
@@ -188,16 +189,22 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
         val (request, response, result) = request.timeout(15_000).awaitStringResponseResult()
 
-        val delta = Date().time - start.time
+        try {
+            val delta = Date().time - start.time
 
-        result.fold({
-            Log.i(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
-        }, {
-            Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
-        })
+            result.fold({
+                Log.i(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
+            }, {
+                Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
+            })
 
-        val value = decoder.decode(result.get())
-        return value to response
+            val value = decoder.decode(result.get())
+            return value to response
+        } catch (e: FuelError) {
+            throw ShuOperationException(e.exception, response.asShu())
+        } catch (e: Exception) {
+            throw ShuOperationException(e, response.asShu())
+        }
     }
 
 //region=========VALIDATORS==========================
