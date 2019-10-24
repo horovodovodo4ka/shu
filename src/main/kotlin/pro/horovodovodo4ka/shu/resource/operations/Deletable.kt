@@ -24,4 +24,4 @@ fun <Resource> Resource.deferredDelete(resourceId: String)
 
 // Shorthand
 suspend fun <Resource> Resource.delete(resourceId: String)
-        where Resource : ShuWOResource<Unit>, Resource : Deletable = deferredDelete(resourceId).run()
+        where Resource : ShuWOResource<Unit>, Resource : Deletable = deferredDelete(resourceId).run(Throwable().stackTrace.getOrNull(2))

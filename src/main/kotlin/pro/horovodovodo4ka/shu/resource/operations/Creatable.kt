@@ -20,4 +20,4 @@ fun <Resource, ResourceType : Any> Resource.deferredCreate(resource: ResourceTyp
 
 // Shorthand
 suspend fun <Resource, ResourceType : Any> Resource.create(resource: ResourceType)
-        where Resource : ShuRWResource<ResourceType>, Resource : Creatable = deferredCreate(resource).run()
+        where Resource : ShuRWResource<ResourceType>, Resource : Creatable = deferredCreate(resource).run(Throwable().stackTrace.getOrNull(2))

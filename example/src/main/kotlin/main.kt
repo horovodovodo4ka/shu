@@ -54,13 +54,13 @@ object API : ShuRemote by ShuRemoteDefault("https://httpbin.org/") {
 object TestResource : ShuROResource<TestModel> by ro(API, "/get", decoder = TestModel_Kodable.decoder.digInto(".headers")),
     Readable
 
-object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A::class.kodable().encoder, decoder = TestModel::class.kodable().decoder)
+object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A_Kodable.encoder, decoder = TestModel_Kodable.decoder)
 
 @Koder
 data class A(val i: Int?)
 
 @Koder
-data class TestModel(val lAccept: String, val Host: String)
+data class TestModel(val Accept: String, val Host: String)
 
 fun main() {
     Log.addLoggers(PrintLogger())

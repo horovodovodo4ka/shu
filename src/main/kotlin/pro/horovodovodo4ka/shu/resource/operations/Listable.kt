@@ -19,4 +19,4 @@ fun <Resource, ResourceType : Any> Resource.listDeferred(parameters: QueryParame
 
 // Shorthand
 suspend fun <Resource, ResourceType : Any> Resource.list(parameters: QueryParameters? = null)
-        where Resource : ShuROResource<ResourceType>, Resource : Listable = listDeferred(parameters).run()
+        where Resource : ShuROResource<ResourceType>, Resource : Listable = listDeferred(parameters).run(Throwable().stackTrace.getOrNull(2))

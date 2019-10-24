@@ -20,7 +20,7 @@ class ShuResponse<ResponseType : Any>(val value: ResponseType, val rawResponse: 
     operator fun component4() = rawResponse.body
 }
 
-class ShuOperationException(override val cause: Throwable, val rawResponse: ShuRawResponse) : Exception("", cause = cause) {
+class ShuOperationException(override val cause: Throwable, val rawResponse: ShuRawResponse) : Throwable(cause) {
     operator fun component1() = cause
     operator fun component2() = rawResponse.httpStatusCode
     operator fun component3() = rawResponse.headers
@@ -37,5 +37,8 @@ class ShuOperation<RequestType : Any, ResponseType : Any>(
     val requestEncoder: () -> Encoder<RequestType> = { TODO() },
     val responseDecoder: () -> Decoder<ResponseType> = { TODO() }
 ) {
-    suspend fun run() = withContext(Dispatchers.IO) { origin.request(this@ShuOperation) }
+    /**
+     * [context] is used for tracking call point. Should not be overridden directly/
+     */
+    suspend fun run(context: StackTraceElement? = Throwable().stackTrace.getOrNull(1)) = withContext(Dispatchers.IO) { origin.request(this@ShuOperation, context) }
 }

@@ -13,7 +13,11 @@ object Network : LogType
 
 interface ShuRemote {
     fun addMiddleware(block: Middleware.() -> Unit)
-    suspend fun <RequestType : Any, ResponseType : Any> request(operation: ShuOperation<RequestType, ResponseType>): Result<ShuResponse<ResponseType>>
+
+    suspend fun <RequestType : Any, ResponseType : Any> request(
+        operation: ShuOperation<RequestType, ResponseType>,
+        context: StackTraceElement? = Throwable().stackTrace.getOrNull(1)
+    ): Result<ShuResponse<ResponseType>>
 }
 
 @DslMarker

@@ -94,9 +94,9 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         return newUrl.toString()
     }
 
-    private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>): ShuResponse<T> = coroutineScope {
+    private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>, context: StackTraceElement?): ShuResponse<T> = coroutineScope {
         val requestJob = async {
-            val (result, response) = request.response(decoder)
+            val (result, response) = request.response(decoder, context)
             ShuResponse(result, response.asShu())
         }
 
@@ -108,34 +108,35 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         requestJob.await()
     }
 
-    override suspend fun <RequestType : Any, ResponseType : Any> request(operation: ShuOperation<RequestType, ResponseType>): Result<ShuResponse<ResponseType>> = Result.of {
-        with(operation) {
-            val body = when (method) {
-                GET, DELETE -> null
-                POST, PUT -> resourceForSend?.let { requestEncoder().encode(it) }
-                else -> throw Exception("Unsupported HTTP method $method")
-            }
+    override suspend fun <RequestType : Any, ResponseType : Any> request(operation: ShuOperation<RequestType, ResponseType>, context: StackTraceElement?): Result<ShuResponse<ResponseType>> =
+        Result.of {
+            with(operation) {
+                val body = when (method) {
+                    GET, DELETE -> null
+                    POST, PUT -> resourceForSend?.let { requestEncoder().encode(it) }
+                    else -> throw Exception("Unsupported HTTP method $method")
+                }
 
-            val decoder = responseDecoder()
+                val decoder = responseDecoder()
 
-            val fullUrl = fullUrl(path)
-            val queryList = queryParameters?.toList()
+                val fullUrl = fullUrl(path)
+                val queryList = queryParameters?.toList()
 
-            makeJob(decoder) { state ->
+                makeJob(decoder) { state ->
 
-                val headersList = (middlewares.mapNotNull { it.headersImpl?.invoke(decoder) } + headers).filterNotNull()
+                    val headersList = (middlewares.mapNotNull { it.headersImpl?.invoke(decoder) } + headers).filterNotNull()
 
-                val headers = headersList.reduce { acc, map -> acc + map }
+                    val headers = headersList.reduce { acc, map -> acc + map }
 
-                val request = manager.request(method, fullUrl, queryList).header(headers)
+                    val request = manager.request(method, fullUrl, queryList).header(headers)
 
-                body?.also { request.body(it) }
-                state.request = request
+                    body?.also { request.body(it) }
+                    state.request = request
 
-                runRequest(request, decoder)
+                    runRequest(request, decoder, context)
+                }
             }
         }
-    }
 
     private class RequestHolder<T : ShuResponse<*>>(
         var request: Request? = null,
@@ -182,8 +183,8 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         }
     }
 
-    private suspend fun <T : Any> Request.response(decoder: Decoder<T>): Pair<T, Response> {
-        Log.d(Network, "\n$this")
+    private suspend fun <T : Any> Request.response(decoder: Decoder<T>, context: StackTraceElement?): Pair<T, Response> {
+        Log.d(Network, context = context, lazyMessage = { "\n$this" })
 
         val start = Date()
 
@@ -193,9 +194,9 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             val delta = Date().time - start.time
 
             result.fold({
-                Log.i(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
+                Log.i(Network, context = context, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
             }, {
-                Log.e(Network, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
+                Log.e(Network, context = context, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
             })
 
             val value = decoder.decode(result.get())

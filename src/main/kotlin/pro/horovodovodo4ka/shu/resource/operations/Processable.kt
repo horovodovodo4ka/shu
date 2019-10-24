@@ -20,4 +20,4 @@ fun <Resource, RequestType : Any, ResponseType : Any> Resource.deferredCall(comm
 
 // Shorthand
 suspend fun <Resource, RequestType : Any, ResponseType : Any> Resource.call(command: RequestType)
-        where Resource : Rpc<RequestType, ResponseType> = deferredCall(command).run()
+        where Resource : Rpc<RequestType, ResponseType> = deferredCall(command).run(Throwable().stackTrace.getOrNull(2))
