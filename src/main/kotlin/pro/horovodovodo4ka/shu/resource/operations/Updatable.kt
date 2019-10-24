@@ -21,4 +21,4 @@ fun <Resource, ResourceType : Any> Resource.deferredUpdate(resourceId: String? =
 
 // Shorthand
 suspend fun <Resource, ResourceType : Any> Resource.update(resourceId: String? = null, resource: ResourceType)
-        where Resource : ShuRWResource<ResourceType>, Resource : Updatable = deferredUpdate(resourceId, resource).run().map { it.data }
+        where Resource : ShuRWResource<ResourceType>, Resource : Updatable = deferredUpdate(resourceId, resource).run()

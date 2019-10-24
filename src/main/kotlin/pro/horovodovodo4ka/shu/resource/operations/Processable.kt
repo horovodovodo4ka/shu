@@ -21,4 +21,4 @@ fun <Resource, RequestType : Any, ResponseType : Any> Resource.deferredCall(comm
 
 // Shorthand
 suspend fun <Resource, RequestType : Any, ResponseType : Any> Resource.call(command: RequestType)
-        where Resource : Rpc<RequestType, ResponseType> = deferredCall(command).run().map { it.data }
+        where Resource : Rpc<RequestType, ResponseType> = deferredCall(command).run()

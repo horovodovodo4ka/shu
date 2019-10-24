@@ -1,9 +1,9 @@
 package pro.horovodovodo4ka.shu
 
-import com.github.kittinunf.fuel.core.Response
 import pro.horovodovodo4ka.astaroth.LogType
 import pro.horovodovodo4ka.shu.coders.Decoder
 import pro.horovodovodo4ka.shu.resource.ShuOperation
+import pro.horovodovodo4ka.shu.resource.ShuRawResponse
 import pro.horovodovodo4ka.shu.resource.ShuResponse
 
 typealias Headers = Map<String, String>
@@ -27,7 +27,7 @@ interface Middleware {
     fun requestBarrier(block: suspend (Decoder<*>) -> Unit)
 
     @MiddlewareDsl
-    fun validateResponse(block: (Response) -> Unit)
+    fun validateResponse(block: (ShuRawResponse) -> Unit)
 
     @MiddlewareDsl
     fun recover(block: suspend (Decoder<*>, Throwable) -> Unit)

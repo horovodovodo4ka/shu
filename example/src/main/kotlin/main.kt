@@ -16,9 +16,7 @@ import pro.horovodovodo4ka.shu.resource.ro
 import pro.horovodovodo4ka.shu.resource.Rpc
 import pro.horovodovodo4ka.shu.resource.operations.Readable
 import pro.horovodovodo4ka.shu.resource.ShuROResource
-import pro.horovodovodo4ka.shu.resource.operations.call
 import pro.horovodovodo4ka.shu.resource.operations.deferredCall
-import pro.horovodovodo4ka.shu.resource.operations.deferredRead
 import pro.horovodovodo4ka.shu.resource.operations.read
 import pro.horovodovodo4ka.shu.resource.rpc
 
@@ -56,10 +54,10 @@ object API : ShuRemote by ShuRemoteDefault("https://httpbin.org/") {
 object TestResource : ShuROResource<TestModel> by ro(API, "/get", decoder = TestModel_Kodable.decoder.digInto(".headers")),
     Readable
 
-object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A_Kodable.encoder, decoder = TestModel_Kodable.decoder)
+object TestRPC : Rpc<A, TestModel> by rpc(API, "post", encoder = A::class.kodable().encoder, decoder = TestModel::class.kodable().decoder)
 
 @Koder
-data class A(val i: Int)
+data class A(val i: Int?)
 
 @Koder
 data class TestModel(val Accept: String, val Host: String)
@@ -70,7 +68,7 @@ fun main() {
     val params = mapOf("a" to 1, "b" to listOf(1, 2))
 
     runBlocking {
-        val r1 = TestRPC.deferredCall(A(1)).digInto(".headers").run().getOrThrow().data
+        val r1 = TestRPC.deferredCall(A(1)).digInto(".headers").run().getOrThrow().value
         val res = TestResource.read(parameters = params).getOrThrow()
         Log.d(res)
     }

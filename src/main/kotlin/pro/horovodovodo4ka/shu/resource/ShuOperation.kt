@@ -9,9 +9,15 @@ import pro.horovodovodo4ka.shu.ShuRemote
 import pro.horovodovodo4ka.shu.coders.Decoder
 import pro.horovodovodo4ka.shu.coders.Encoder
 
-class ShuResponse<ResponseType : Any>(val data: ResponseType, val headers: Headers) {
-    fun component1() = data
-    fun component2() = headers
+class ShuRawResponse(val httpStatusCode: Int, val headers: Headers, body: () -> ByteArray) {
+    val body by lazy { body() }
+}
+
+class ShuResponse<ResponseType : Any>(val value: ResponseType, val rawResponse: ShuRawResponse) {
+    operator fun component1() = value
+    operator fun component2() = rawResponse.httpStatusCode
+    operator fun component3() = rawResponse.headers
+    operator fun component4() = rawResponse.body
 }
 
 class ShuOperation<RequestType : Any, ResponseType : Any>(

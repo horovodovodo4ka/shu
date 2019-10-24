@@ -23,9 +23,12 @@ import pro.horovodovodo4ka.shu.coders.Decoder
 import pro.horovodovodo4ka.shu.extension.headersMap
 import pro.horovodovodo4ka.shu.extension.uriQueryString
 import pro.horovodovodo4ka.shu.resource.ShuOperation
+import pro.horovodovodo4ka.shu.resource.ShuRawResponse
 import pro.horovodovodo4ka.shu.resource.ShuResponse
 import java.net.URI
 import java.util.*
+
+private fun Response.asShu() : ShuRawResponse = ShuRawResponse(statusCode, headersMap) { data }
 
 class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
@@ -44,7 +47,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         var headersImpl: ((Decoder<*>) -> Headers?)? = null
         var requestBarrierImpl: (suspend (Decoder<*>) -> Unit)? = null
 
-        var validateResponseImpl: ((Response) -> Unit)? = null
+        var validateResponseImpl: ((ShuRawResponse) -> Unit)? = null
 
         var recoverImpl: (suspend (Decoder<*>, Throwable) -> Unit)? = null
         var successImpl: ((ShuResponse<*>) -> Unit)? = null
@@ -57,7 +60,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             requestBarrierImpl = block
         }
 
-        override fun validateResponse(block: (Response) -> Unit) {
+        override fun validateResponse(block: (ShuRawResponse) -> Unit) {
             validateResponseImpl = block
         }
 
@@ -77,7 +80,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
     }
 
     private fun validateWithMiddlewares(response: Response) {
-        middlewares.mapNotNull { it.validateResponseImpl }.forEach { it.invoke(response) }
+        middlewares.mapNotNull { it.validateResponseImpl }.forEach { it.invoke(response.asShu()) }
     }
 
     private fun fullUrl(path: String, query: QueryParameters? = null): String {
@@ -93,7 +96,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
     private suspend fun <T : Any> runRequest(request: Request, decoder: Decoder<T>): ShuResponse<T> = coroutineScope {
         val requestJob = async {
             val (result, response) = request.response(decoder)
-            ShuResponse(result, response.headersMap)
+            ShuResponse(result, response.asShu())
         }
 
         requestJob.invokeOnCompletion {

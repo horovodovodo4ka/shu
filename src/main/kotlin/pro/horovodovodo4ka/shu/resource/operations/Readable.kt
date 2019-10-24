@@ -21,4 +21,4 @@ fun <Resource, ResourceType : Any> Resource.deferredRead(resourceId: String? = n
 
 // Shorthand
 suspend fun <Resource, ResourceType : Any> Resource.read(resourceId: String? = null, parameters: QueryParameters? = null)
-        where Resource : ShuROResource<ResourceType>, Resource : Readable = deferredRead(resourceId, parameters).run().map { it.data }
+        where Resource : ShuROResource<ResourceType>, Resource : Readable = deferredRead(resourceId, parameters).run()
