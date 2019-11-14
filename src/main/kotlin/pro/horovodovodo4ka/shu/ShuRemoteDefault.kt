@@ -194,9 +194,11 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             val delta = Date().time - start.time
 
             result.fold({
-                Log.i(Network, context = context, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response" })
+                val message = "\n$request\n---<time: ${delta}ms>---\n\n$response"
+                Log.i(Network, context = context, lazyMessage = { message })
             }, {
-                Log.e(Network, context = context, lazyMessage = { "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it" })
+                val message = "\n$request\n---<time: ${delta}ms>---\n\n$response\n\nerror: $it"
+                Log.e(Network, context = context, lazyMessage = { message })
             })
 
             val value = decoder.decode(result.get())
@@ -208,7 +210,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         }
     }
 
-//region=========VALIDATORS==========================
+//region=========VALIDATORS================
 
     private fun addValidator(validator: (Response) -> Unit) {
         manager.addResponseInterceptor { next: (Request, Response) -> Response ->
