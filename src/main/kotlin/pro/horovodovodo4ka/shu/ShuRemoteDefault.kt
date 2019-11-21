@@ -148,7 +148,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             async {
                 try {
                     checkForError(mapper) { block(it) }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     it.request?.tryCancel()
                     it.task(it).cancel()
                     throw e
@@ -165,7 +165,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             request().also { result -> middlewares.mapNotNull { it.successImpl }.forEach { it(result) } }
         } catch (e: CancellationException) {
             throw e
-        } catch (exception: Exception) {
+        } catch (exception: Throwable) {
             val error = when (exception) {
                 is FuelError -> exception.exception
                 else -> exception
@@ -205,7 +205,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
             return value to response
         } catch (e: FuelError) {
             throw ShuOperationException(e.exception, response.asShu())
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             throw ShuOperationException(e, response.asShu())
         }
     }

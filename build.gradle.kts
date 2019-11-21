@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    implementation(kotlin("stdlib-jdk8"))
+    implementation(kotlin("stdlib"))
 
     implementation("pro.horovodovodo4ka.astaroth:astaroth:0.4.1")
 
