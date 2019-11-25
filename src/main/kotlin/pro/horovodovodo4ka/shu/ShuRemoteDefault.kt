@@ -40,6 +40,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         manager.basePath = apiUrl
 
         manager.removeAllResponseInterceptors()
+        manager.removeAllRequestInterceptors()
         manager.addResponseInterceptor(redirectResponseInterceptor(manager))
         addValidator(::validateWithMiddlewares)
     }
@@ -189,6 +190,8 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
         Log.d(Network, context = context, lazyMessage = { "\n$this" })
 
         val start = Date()
+
+        executionOptions.responseValidator = { true }
 
         val (request, response, result) = request.timeout(15_000).awaitStringResponseResult()
 
