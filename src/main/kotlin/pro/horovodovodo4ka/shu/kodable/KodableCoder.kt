@@ -9,7 +9,7 @@ import pro.horovodovodo4ka.shu.coders.Coder
 interface InnerCoder<T> : Coder<T>, InnerDecoder<T>
 ///
 
-class KodableCoder<T>(private val nesting: IKodable<T>, override val jsonPath: KodablePath? = null) :
+class KodableCoder<T: Any>(private val nesting: IKodable<T>, override val jsonPath: KodablePath? = null) :
     InnerCoder<T> {
 
     override fun decode(from: String): T = nesting.dekode(from, jsonPath)
@@ -25,4 +25,4 @@ class KodableCoder<T>(private val nesting: IKodable<T>, override val jsonPath: K
     override fun digInto(path: String) = KodableCoder(nesting, KodablePath(path))
 }
 
-val <T> IKodable<T>.coder get() = KodableCoder(this)
+val <T: Any> IKodable<T>.coder get() = KodableCoder(this)

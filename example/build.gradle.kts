@@ -20,8 +20,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2")
 
     implementation("pro.horovodovodo4ka.astaroth:astaroth:0.4.1")
-    kapt("pro.horovodovodo4ka.kodable:processor:1.2.11")
-    api ("pro.horovodovodo4ka.kodable:core:1.2.11")
+    kapt("pro.horovodovodo4ka.kodable:processor:2.0.12")
+    api ("pro.horovodovodo4ka.kodable:core:2.0.12")
 }
 
 tasks.withType<KotlinCompile> {

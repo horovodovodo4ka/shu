@@ -18,7 +18,7 @@ fun <T : Any, V : Any> ShuOperation<T, V>.digInto(jsonPath: String): ShuOperatio
 
 ///
 
-class KodableDecoder<T>(private val nesting: IKodable<T>, override val jsonPath: KodablePath? = null) :
+class KodableDecoder<T : Any>(private val nesting: IKodable<T>, override val jsonPath: KodablePath? = null) :
     InnerDecoder<T> {
 
     override fun decode(from: String): T = nesting.dekode(from, jsonPath)
@@ -33,4 +33,4 @@ class KodableDecoder<T>(private val nesting: IKodable<T>, override val jsonPath:
 
 }
 
-val <T> IKodable<T>.decoder get() = KodableDecoder(this)
+val <T : Any> IKodable<T>.decoder get() = KodableDecoder(this)

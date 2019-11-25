@@ -11,6 +11,7 @@ import com.github.kittinunf.fuel.core.Response
 import com.github.kittinunf.fuel.core.interceptors.redirectResponseInterceptor
 import com.github.kittinunf.fuel.core.requests.tryCancel
 import com.github.kittinunf.fuel.coroutines.awaitStringResponseResult
+import com.github.kittinunf.result.map
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -81,7 +82,8 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
     }
 
     private fun validateWithMiddlewares(response: Response) {
-        middlewares.mapNotNull { it.validateResponseImpl }.forEach { it.invoke(response.asShu()) }
+        val shuResponse = response.asShu()
+        middlewares.mapNotNull { it.validateResponseImpl }.forEach { it(shuResponse) }
     }
 
     private fun fullUrl(path: String, query: QueryParameters? = null): String {
@@ -126,7 +128,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
                     val headersList = (middlewares.mapNotNull { it.headersImpl?.invoke(decoder) } + headers).filterNotNull()
 
-                    val headers = headersList.reduce { acc, map -> acc + map }
+                    val headers = if (headersList.isNotEmpty()) headersList.reduce { acc, map -> acc + map } else emptyMap()
 
                     val request = manager.request(method, fullUrl, queryList).header(headers)
 
@@ -190,10 +192,14 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
         val (request, response, result) = request.timeout(15_000).awaitStringResponseResult()
 
-        try {
-            val delta = Date().time - start.time
+        val delta = Date().time - start.time
 
-            result.fold({
+        val shuResponse = response.asShu()
+
+        try {
+            val resultT = runCatching { result.get() }.mapCatching { decoder.decode(it) }
+
+            resultT.fold({
                 val message = "\n$request\n---<time: ${delta}ms>---\n\n$response"
                 Log.i(Network, context = context, lazyMessage = { message })
             }, {
@@ -201,12 +207,11 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
                 Log.e(Network, context = context, lazyMessage = { message })
             })
 
-            val value = decoder.decode(result.get())
-            return value to response
+            return resultT.getOrThrow() to response
         } catch (e: FuelError) {
-            throw ShuOperationException(e.exception, response.asShu())
+            throw ShuOperationException(e.exception, shuResponse)
         } catch (e: Throwable) {
-            throw ShuOperationException(e, response.asShu())
+            throw ShuOperationException(e, shuResponse)
         }
     }
 

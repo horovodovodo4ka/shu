@@ -4,7 +4,7 @@ import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.shu.coders.Encoder
 
-class KodableEncoder<T>(private val nesting: IKodable<T>) : Encoder<T> {
+class KodableEncoder<T: Any>(private val nesting: IKodable<T>) : Encoder<T> {
     override fun encode(instance: T): String = nesting.enkode(instance)
 
     override val list: Encoder<List<T>>
@@ -14,4 +14,4 @@ class KodableEncoder<T>(private val nesting: IKodable<T>) : Encoder<T> {
         get() = KodableEncoder(nesting.dictionary)
 }
 
-val <T> IKodable<T>.encoder get() = KodableEncoder(this)
+val <T: Any> IKodable<T>.encoder get() = KodableEncoder(this)
