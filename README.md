@@ -1,6 +1,8 @@
 # shu
 
-Hi level CRUDL http client for building strict Restful API.
+![image](./shu.jpg)
+
+High level CRUDL http client for building strict Restful API.
 
 ## License
 ```
