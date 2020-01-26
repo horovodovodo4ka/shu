@@ -122,8 +122,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
                 val decoder = responseDecoder()
 
-                val fullUrl = fullUrl(path)
-                val queryList = queryParameters?.toList()
+                val fullUrl = fullUrl(path, queryParameters)
 
                 makeJob(decoder) { state ->
 
@@ -131,7 +130,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
                     val headers = if (headersList.isNotEmpty()) headersList.reduce { acc, map -> acc + map } else emptyMap()
 
-                    val request = manager.request(method, fullUrl, queryList).header(headers)
+                    val request = manager.request(method, fullUrl).header(headers)
 
                     body?.also { request.body(it) }
                     state.request = request
