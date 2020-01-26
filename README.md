@@ -2,6 +2,8 @@
 
 ![image](./shu.jpg)
 
+[![](https://jitpack.io/v/pro.horovodovodo4ka/shu.svg)](https://jitpack.io/#pro.horovodovodo4ka/kodable)
+
 High level CRUDL http client for building strict Restful API.
 
 ## License
