@@ -6,6 +6,10 @@
 
 High level CRUDL http client for building strict Restful API.
 
+```
+implementation("pro.horovodovodo4ka:shu:1.1.8")
+```
+
 ## License
 ```
 MIT License
