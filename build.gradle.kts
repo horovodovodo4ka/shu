@@ -20,8 +20,8 @@ dependencies {
 
     implementation("pro.horovodovodo4ka.astaroth:astaroth:0.4.2")
 
-    kapt("pro.horovodovodo4ka.kodable:processor:2.0.12")
-    implementation ("pro.horovodovodo4ka.kodable:core:2.0.12")
+    kapt("pro.horovodovodo4ka.kodable:processor:2.3.1")
+    implementation ("pro.horovodovodo4ka.kodable:core:2.3.1")
 
     implementation("com.github.kittinunf.fuel:fuel:2.2.1")
     implementation("com.github.kittinunf.fuel:fuel-coroutines:2.2.1")
