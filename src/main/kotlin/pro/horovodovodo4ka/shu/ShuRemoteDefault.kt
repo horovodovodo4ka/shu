@@ -11,7 +11,6 @@ import com.github.kittinunf.fuel.core.Response
 import com.github.kittinunf.fuel.core.interceptors.redirectResponseInterceptor
 import com.github.kittinunf.fuel.core.requests.tryCancel
 import com.github.kittinunf.fuel.coroutines.awaitStringResponseResult
-import com.github.kittinunf.result.map
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -32,12 +31,13 @@ import java.util.*
 
 private fun Response.asShu(): ShuRawResponse = ShuRawResponse(statusCode, headersMap) { data }
 
-class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
+class ShuRemoteDefault(private val apiUrl: String, timeout: Int = 15_000) : ShuRemote {
 
     private var manager = FuelManager()
 
     init {
         manager.basePath = apiUrl
+        manager.timeoutReadInMillisecond = timeout
 
         manager.removeAllResponseInterceptors()
         manager.removeAllRequestInterceptors()
@@ -192,7 +192,7 @@ class ShuRemoteDefault(private val apiUrl: String) : ShuRemote {
 
         executionOptions.responseValidator = { true }
 
-        val (request, response, result) = request.timeout(15_000).awaitStringResponseResult()
+        val (request, response, result) = request.awaitStringResponseResult()
 
         val delta = Date().time - start.time
 
